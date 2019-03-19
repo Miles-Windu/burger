@@ -1,39 +1,103 @@
-// requiring connection to the database
-var connection = require("./connection.js");
+// Require connection to database
+var connection = require("../config/connection.js");
 
-// saving the orm functions in a variable to export to other files
-var orm = {
+// this is borrowed from the cats.js app we bult in class.
+// this is essentially creating the placeholders in the query statements in mysql. 
+function printQuestionMarks(num) {
+  var arr = [];
 
-    // this function will select all from the burger table in the burgers_db
-    selectAll: function(callback){
-        connection.query("SELECT * FROM burgers_db.burger", function(err, results){
-            if (err) {
-                throw err
-            }
-           callback(results)
-        })
-    }, 
+  for (var i = 0; i < num; i++) {
+    arr.push("?");
+  }
 
-    //==================================================================
-    // this function will select the burger fom the input field and add it to the database
-    insertOne: function(burger, callback){
-        connection.query("INSERT INTO burger (burger_name) VALUES ?", [burger.burger_name], function(err, results){
-            if (err){
-                throw err
-            }
-            callback(results); 
-        })
-    },
+  return arr.toString();
+}
 
-    //==================================================================
-    // this function will update the burger's boolean value to represent whether the burger has been eaten or not
-    updateOne: function(burger, callback){
-        connection.query("UPDATE ? WHERE ?")
+// Helper function to convert object key/value pairs to SQL syntax
+function objToSql(ob) {
+  var arr = [];
 
+  // loop through the keys and push the key/value as a string int arr
+  for (var key in ob) {
+    var value = ob[key];
+    // check to skip hidden properties
+    if (Object.hasOwnProperty.call(ob, key)) {
+      // if string with spaces, add quotations (Lana Del Grey => 'Lana Del Grey')
+      if (typeof value === "string" && value.indexOf(" ") >= 0) {
+        value = "'" + value + "'";
+      }
+
+      arr.push(key + "=" + value);
     }
-},
+  }
 
+  // translate array of strings to a single comma-separated string
+  return arr.toString();
+}
 
-module.exports = orm
+// Object for all our SQL statement functions.
+var orm = {
+  all: function(tableInput, cb) {
+    var queryString = "SELECT * FROM " + tableInput + ";";
+    connection.query(queryString, function(err, result) {
+      if (err) {
+        throw err;
+      }
+      cb(result);
+    });
+  },
+  create: function(table, cols, vals, cb) {
+    var queryString = "INSERT INTO " + table;
 
-    
+    queryString += " (";
+    queryString += cols.toString();
+    queryString += ") ";
+    queryString += "VALUES (";
+    queryString += printQuestionMarks(vals.length);
+    queryString += ") ";
+
+    console.log(queryString);
+
+    connection.query(queryString, vals, function(err, result) {
+      if (err) {
+        throw err;
+      }
+
+      cb(result);
+    });
+  },
+  // An example of objColVals would be {burger_name: Double cheeseburger, devoured: true}
+  update: function(table, objColVals, condition, cb) {
+    var queryString = "UPDATE " + table;
+
+    queryString += " SET ";
+    queryString += objToSql(objColVals);
+    queryString += " WHERE ";
+    queryString += condition;
+
+    console.log(queryString);
+    connection.query(queryString, function(err, result) {
+      if (err) {
+        throw err;
+      }
+
+      cb(result);
+    });
+  },
+  delete: function(table, condition, cb) {
+    var queryString = "DELETE FROM " + table;
+    queryString += " WHERE ";
+    queryString += condition;
+
+    connection.query(queryString, function(err, result) {
+      if (err) {
+        throw err;
+      }
+
+      cb(result);
+    });
+  }
+};
+
+// Export the orm object for the model
+module.exports = orm;
